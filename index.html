@@ -31,6 +31,8 @@
     .notice{padding:12px;border-radius:10px;background:rgba(255,255,255,0.03);text-align:center}
     .coming{font-size:18px;font-weight:700;margin-top:6px}
     .tiny{font-size:12px;color:var(--muted)}
+    .leaderboard{margin-top:12px}
+    .leaderboard div{padding:6px;border-bottom:1px solid rgba(255,255,255,0.05)}
     footer{grid-column:1/-1;text-align:center;color:var(--muted);font-size:12px;margin-top:12px}
     @media (max-width:880px){.wrap{grid-template-columns:1fr;gap:12px}.side{order:2}}
   </style>
@@ -39,11 +41,11 @@
   <div class="wrap">
     <div class="card main">
       <h1>Bro's Games V2 Clicker</h1>
-      <div class="sub">click the button</div>
+      <div class="sub" id="welcomeText">loading...</div>
       <div>
         <div class="bigcount" id="count">0</div>
         <button id="clickBtn">click me</button>
-        <div class="small">local counter</div>
+        <div class="small">realtime shared counter</div>
         <div class="progressWrap"><div id="progress" class="progressInner"></div></div>
       </div>
     </div>
@@ -55,33 +57,89 @@
       </div>
 
       <div class="notice">
-        <div class="muted">special</div>
-        <div id="specialText" class="coming">not yet</div>
-        <div class="tiny" id="specialDate"></div>
+        <div class="muted">leaderboard</div>
+        <div id="leaderboard" class="leaderboard"></div>
       </div>
     </div>
     <footer>click like your life depends on it</footer>
   </div>
 
+  <!-- firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
   <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCB63EYBBSih6ygSahhC4cOWtQ-1Ocnl1k",
+      authDomain: "clicker-1mil.firebaseapp.com",
+      projectId: "clicker-1mil",
+      storageBucket: "clicker-1mil.firebasestorage.app",
+      messagingSenderId: "58236696117",
+      appId: "1:58236696117:web:d204b9638fc382b497637c",
+      measurementId: "G-3DBR2BJJGZ",
+      databaseURL: "https://clicker-1mil-default-rtdb.firebaseio.com/"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const rootRef = db.ref("globalClicker");
+    const usersRef = rootRef.child("users");
     const countEl = document.getElementById("count");
     const progressEl = document.getElementById("progress");
     const statusEl = document.getElementById("status");
+    const leaderboardEl = document.getElementById("leaderboard");
+    const welcomeText = document.getElementById("welcomeText");
+    const btn = document.getElementById("clickBtn");
     const GOAL = 1_000_000;
-    let count = 0;
 
-    const updateUI = () => {
+    // get username or ask
+    let username = localStorage.getItem("bg2_username");
+    if(!username){
+      username = prompt("choose a username") || "anon";
+      localStorage.setItem("bg2_username", username);
+    }
+    welcomeText.textContent = `welcome, ${username}`;
+
+    const updateUI = (data) => {
+      const count = Number(data.count || 0);
       countEl.textContent = count.toLocaleString();
       progressEl.style.width = Math.min(100, (count / GOAL) * 100) + "%";
       statusEl.textContent = count >= GOAL ? "done" : "in progress";
+
+      const users = data.users || {};
+      const sorted = Object.entries(users).sort((a,b)=>b[1]-a[1]).slice(0,5);
+      leaderboardEl.innerHTML = "";
+      sorted.forEach(([name,c])=>{
+        const div = document.createElement("div");
+        div.textContent = `${name}: ${c.toLocaleString()}`;
+        leaderboardEl.appendChild(div);
+      });
     }
 
-    document.getElementById("clickBtn").addEventListener("click", () => {
-      count++;
-      updateUI();
+    // listen for global changes
+    rootRef.on("value", snap=>{
+      updateUI(snap.val() || {});
     });
 
-    updateUI();
+    // click handler
+    btn.addEventListener("click", ()=>{
+      btn.disabled = true;
+      rootRef.transaction((current)=>{
+        current = current || {count:0, users:{}};
+        current.count = (current.count||0)+1;
+        current.users[username] = (current.users[username]||0)+1;
+        return current;
+      }, ()=>{
+        btn.disabled = false;
+      });
+    });
+
+    // init if empty
+    rootRef.once("value").then(snap=>{
+      if(!snap.exists()){
+        rootRef.set({count:0, users:{}});
+      }
+    });
   </script>
 </body>
 </html>
