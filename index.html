@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>global clicker 🥀</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --accent:#7c3aed;
+      --muted:#9aa4b2;
+      --glass: rgba(255,255,255,0.03);
+    }
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial}
+    body{background:linear-gradient(180deg,#051022 0%,var(--bg) 100%);display:flex;align-items:center;justify-content:center;padding:32px;color:#e6eef8}
+    .wrap{width:min(920px,96vw);display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:22px;box-shadow:0 8px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+    .main{padding:28px;border-radius:12px}
+    h1{margin:0 0 6px 0;font-size:22px;letter-spacing:-0.4px}
+    .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+    .bigcount{font-size:64px;line-height:1;font-weight:700;margin:14px 0}
+    #clickBtn{width:100%;padding:18px;border-radius:12px;border:none;font-size:20px;font-weight:700;background:linear-gradient(90deg,var(--accent),#4f46e5);color:white;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,0.18)}
+    .small{font-size:13px;color:var(--muted);margin-top:10px}
+    .progressWrap{background:var(--glass);height:18px;border-radius:12px;overflow:hidden;margin-top:12px}
+    .progressInner{height:100%;width:0%;background:linear-gradient(90deg,#34d399,#60a5fa);transition:width 350ms ease}
+    .side{position:relative;padding:22px;border-radius:12px;min-height:260px;display:flex;flex-direction:column;gap:12px}
+    .stat{display:flex;justify-content:space-between;align-items:center;padding:12px;background:rgba(255,255,255,0.02);border-radius:10px}
+    .stat .k{font-weight:700;font-size:20px}
+    .muted{color:var(--muted);font-size:13px}
+    .notice{padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));text-align:center}
+    .coming{font-size:18px;font-weight:700;margin-top:6px}
+    .tiny{font-size:12px;color:var(--muted)}
+    footer{grid-column:1/-1;text-align:center;color:var(--muted);font-size:12px;margin-top:12px}
+    .dot{position:absolute;border-radius:50%;opacity:0.95;will-change:transform;pointer-events:none}
+    @media (max-width:880px){.wrap{grid-template-columns:1fr;gap:12px}.side{order:2}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card main">
+      <h1>global clicker</h1>
+      <div class="sub">click the button. everyone sees the same number live 🥀</div>
+      <div>
+        <div class="bigcount" id="count">0</div>
+        <button id="clickBtn">click me</button>
+        <div class="small">realtime shared counter</div>
+        <div class="progressWrap"><div id="progress" class="progressInner"></div></div>
+      </div>
+    </div>
+
+    <div class="card side">
+      <div class="stat">
+        <div><div class="muted">goal</div><div class="k">1,000,000</div></div>
+        <div style="text-align:right"><div class="muted">status</div><div id="status" class="k">waiting</div></div>
+      </div>
+
+      <div class="notice">
+        <div class="muted">special</div>
+        <div id="specialText" class="coming">not yet</div>
+        <div class="tiny" id="specialDate"></div>
+      </div>
+    </div>
+    <footer>🥀 click like your life depends on it</footer>
+  </div>
+
+  <!-- firebase compat scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <script>
+    // your firebase config (already filled)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCB63EYBBSih6ygSahhC4cOWtQ-1Ocnl1k",
+      authDomain: "clicker-1mil.firebaseapp.com",
+      projectId: "clicker-1mil",
+      storageBucket: "clicker-1mil.firebasestorage.app",
+      messagingSenderId: "58236696117",
+      appId: "1:58236696117:web:d204b9638fc382b497637c",
+      measurementId: "G-3DBR2BJJGZ",
+      databaseURL: "https://clicker-1mil-default-rtdb.firebaseio.com/"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const rootRef = db.ref("globalClicker");
+    const countRef = rootRef.child("count");
+    const milestoneRef = rootRef.child("milestoneTimestamp");
+
+    const countEl = document.getElementById("count");
+    const btn = document.getElementById("clickBtn");
+    const progressEl = document.getElementById("progress");
+    const statusEl = document.getElementById("status");
+    const specialText = document.getElementById("specialText");
+    const specialDate = document.getElementById("specialDate");
+    const GOAL = 1_000_000;
+
+    rootRef.on("value", (snapshot) => {
+      const val = snapshot.val() || {};
+      const count = Number(val.count || 0);
+      const milestone = val.milestoneTimestamp || null;
+      countEl.textContent = count.toLocaleString();
+      progressEl.style.width = Math.min(100, (count / GOAL) * 100) + "%";
+      statusEl.textContent = count >= GOAL ? "done" : "in progress";
+
+      if (milestone) {
+        const ms = Number(milestone);
+        const date = new Date(ms + 7 * 24 * 60 * 60 * 1000);
+        const formatted = date.toLocaleDateString();
+        specialText.textContent = "It is coming on";
+        specialDate.textContent = formatted;
+      }
+    });
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      await countRef.transaction((current) => {
+        if (current === null) return 1;
+        return Number(current) + 1;
+      }, (error, committed, snapshot) => {
+        if (error) console.error(error);
+        else if (committed) {
+          const newCount = snapshot.val();
+          if (newCount >= GOAL) {
+            milestoneRef.transaction((current) => current || Date.now());
+          }
+        }
+      });
+      btn.disabled = false;
+    });
+
+    milestoneRef.on("value", (snap) => {
+      if (!snap.exists()) return;
+      for (let i = 0; i < 25; i++) {
+        const d = document.createElement("div");
+        d.className = "dot";
+        const s = 6 + Math.random() * 18;
+        d.style.width = s + "px";
+        d.style.height = s + "px";
+        d.style.left = 20 + Math.random() * 60 + "%";
+        d.style.top = 10 + Math.random() * 60 + "%";
+        d.style.background = `hsl(${Math.random() * 360} 80% 65%)`;
+        document.body.appendChild(d);
+        const dx = (Math.random() - 0.5) * 800;
+        const dy = -200 + Math.random() * 400;
+        d.animate([
+          { transform: "translate3d(0,0,0)", opacity: 1 },
+          { transform: `translate3d(${dx}px,${dy}px,0)`, opacity: 0 }
+        ], { duration: 2000 + Math.random() * 1200 }).onfinish = () => d.remove();
+      }
+    });
+
+    rootRef.once("value").then(snap => {
+      if (!snap.exists()) rootRef.set({ count: 0, milestoneTimestamp: null });
+    });
+  </script>
+</body>
+</html>
